@@ -276,7 +276,7 @@ class BottleNeck(nn.Module):
     def __init__(self, input_channel, mid_channel):
         super(BottleNeck, self).__init__()
         self.bn1 = nn.BatchNorm2d(input_channel)
-        self.sam = SAM(sa_type, input_channel, mid_channel)
+        self.sam = SAM(input_channel, mid_channel)
         self.bn2 = nn.BatchNorm2d(mid_channel)
         self.conv = nn.Conv2d(mid_channel, input_channel, kernel_size=1)
         self.relu = nn.LeakyReLU(inplace=True)
