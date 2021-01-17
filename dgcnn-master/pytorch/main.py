@@ -50,7 +50,7 @@ def train(args, io):
     elif args.model == 'dgcnn':
         model = DGCNN(args).to(device)
     elif args.model == 'san':
-        model = DGCNN(args).to(device)
+        model = SAN(args).to(device)
     else:
         raise Exception("Not implemented")
     print(str(model))
