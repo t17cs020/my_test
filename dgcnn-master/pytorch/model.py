@@ -151,3 +151,100 @@ class DGCNN(nn.Module):
         x = self.dp2(x)
         x = self.linear3(x)
         return x
+    
+class SAN(nn.Module):
+    def __init__(self, args, output_channels=40):
+        super(DGCNN, self).__init__()
+        self.args = args
+        self.k = args.k
+        
+        self.bn1 = nn.BatchNorm2d(128)
+        self.bn2 = nn.BatchNorm2d(128)
+        self.bn3 = nn.BatchNorm2d(128)
+        self.bn4 = nn.BatchNorm2d(128)
+        self.bn5 = nn.BatchNorm1d(args.emb_dims)
+        ####################conv_in ここから#################
+        self.conv_in = nn.Sequential(nn.Conv2d(3, 128, kernel_size=1, bias=False),
+                                   self.bn1,
+                                   nn.LeakyReLU(negative_slope=0.2))
+        ####################ここまで########################
+        self.fc1 = nn.Conv2d(128, 128, kernel_size=1)
+        self.sa1 = BottleNeck(128, 128//4)
+        ####################################################
+        ####################ここまで########################
+        self.fc2 = nn.Conv2d(128, 128, kernel_size=1)
+        self.sa2 = BottleNeck(128, 128//4)
+        ####################################################
+        ####################ここまで########################
+        self.fc3 = nn.Conv2d(128, 128, kernel_size=1)
+        self.sa3 = BottleNeck(128, 128//4)
+        ####################################################
+        ####################ここまで########################
+        self.fc4 = nn.Conv2d(128, 128, kernel_size=1)
+        self.sa4 = BottleNeck(128, 128//4)
+        ####################################################
+        self.fc5 = nn.Sequential(nn.Conv2d(128*4, args.emb_dims, kernel_size=1, bias=False),
+                                   self.bn5,
+                                   nn.LeakyReLU(negative_slope=0.2))
+        self.linear1 = nn.Linear(args.emb_dims*2, 512, bias=False)
+        self.bn6 = nn.BatchNorm1d(512)
+        self.dp1 = nn.Dropout(p=args.dropout)
+        self.linear2 = nn.Linear(512, 256)
+        self.bn7 = nn.BatchNorm1d(256)
+        self.dp2 = nn.Dropout(p=args.dropout)
+        self.linear3 = nn.Linear(256, output_channels)
+    
+    def forward(self, x):
+        batch_size = x.size(0)
+        xyz_position = x
+        ##########conv_in################
+        x = self.conv_in(x)
+        #################################
+        indices = knn(x, self.k)
+        x = self.sa1( self.fc1(x), indices, xyz_position )
+        x1 = x
+        ##################################
+        indices = knn(x, self.k)
+        x = self.sa2( self.fc2(x), indices, xyz_position )
+        x2 = x
+        #################################
+        indices = knn(x, self.k)
+        x = self.sa3( self.fc3(x), indices, xyz_position )
+        x3 = x
+        #################################
+        indices = knn(x, self.k)
+        x = self.sa4( self.fc4(x), indices, xyz_position )
+        x4 = x
+        #################################
+        x = torch.cat((x1, x2, x3, x4), dim=1)
+        ################################
+        x = self.fc5(x)
+
+        x = F.leaky_relu(self.bn6(self.linear1(x)), negative_slope=0.2)
+        x = self.dp1(x)
+        x = F.leaky_relu(self.bn7(self.linear2(x)), negative_slope=0.2)
+        x = self.dp2(x)
+        x = self.linear3(x)
+        return x
+
+class BottleNeck(nn.Module):
+    def __init__(self, input_channel, mid_channel):
+        super(BottleNeck, self).__init__()
+        self.bn1 = nn.BatchNorm2d(input_channel)
+        self.sam = SAM(sa_type, input_channel, mid_channel)
+        self.bn2 = nn.BatchNorm2d(mid_channel)
+        self.conv = nn.Conv2d(mid_channel, input_channel, kernel_size=1)
+        self.relu = nn.LeakyReLU(inplace=True)
+            
+    def forward(self, x, indices, xyz_position):
+        identity = x
+        out = self.leaky_relu(self.bn1(x))
+        out = self.leaky_relu(self.bn2(self.sam(out, indices, xyz_position)))
+        out = self.conv(out)
+        out += identity
+        return out
+
+    
+    
+    
+    
