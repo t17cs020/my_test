@@ -289,7 +289,43 @@ class BottleNeck(nn.Module):
         out += identity
         return out
 
-    
-    
-    
-    
+class SAM(nn.Module):
+    def __init__(self, input_channel, mid_channel):
+        super(BottleNeck, self).__init__()
+        self.conv1 = nn.Conv2d(input_channel, mid_channel, kernel_size=1)
+        self.conv2 = nn.Conv2d(input_channel, mid_channel, kernel_size=1)
+        self.conv3 = nn.Conv2d(input_channel, mid_channel, kernel_size=1)
+        self.conv4 = nn.Conv2d(3, mid_channel, kernel_size=1)
+        self.conv_score = nn.Conv2d(mid_channel * 2, mid_planes, kernel_size=1)
+        self.conv_value = nn.Conv2d(mid_channel * 2, mid_planes, kernel_size=1)
+        self.bn1 = nn.BatchNorm2d(mid_channel * 2)
+        self.bn2 = nn.BatchNorm2d(mid_channel * 2)
+        self.softmax = nn.Softmax(dim=-2)
+        
+    def __init__(self, x, indices, xyz_position):
+        super(BottleNeck, self).__init__()
+        query = self.conv1(x)
+        key = self.conv2(x)
+        value = self.conv3(x)
+        position = self.conv4(xyz_pozition)
+        
+        keys = get_NN_feature(self.key, indices)#(mbs, ch, k, num_points)
+        score = self.query - self.keys
+        values = get_NN_feature(self.value, indices)
+        positional =  get_PE(self.position,  indices)
+        
+        score = torch.cat((self.score, self.positional), dim=1)
+        values = torch.cat((self.values, self.positional), dim=1)
+        
+        score = F.leaky_relu(self.bn1(self.values), negative_slope=0.2)
+        values = F.leaky_relu(self.bn2(self.values), negative_slope=0.2)
+        
+        score = self.softmax(self.conv_score(score))
+        values = self.conv_value(values)
+        
+        out = torch.mul(score, values)
+        out = out.sum(dim=-1, keepdim=False)
+        return out
+        
+        
+        
