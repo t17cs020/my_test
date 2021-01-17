@@ -317,7 +317,7 @@ class SAM(nn.Module):
         self.conv_value = nn.Conv2d(mid_channel * 2, mid_channel, kernel_size=1)
         self.bn1 = nn.BatchNorm2d(mid_channel * 2)
         self.bn2 = nn.BatchNorm2d(mid_channel * 2)
-        self.softmax = nn.Softmax(dim=-2)
+        self.softmax = nn.Softmax(dim=-1)
         
     def forward(self, x, indices, xyz_position):
         query = self.conv1(x)
@@ -332,7 +332,7 @@ class SAM(nn.Module):
         score = torch.cat((score, positional), dim=1)
         values = torch.cat((values, positional), dim=1)
         
-        score = F.leaky_relu(self.bn1(values), negative_slope=0.2)
+        score = F.leaky_relu(self.bn1(score), negative_slope=0.2)
         values = F.leaky_relu(self.bn2(values), negative_slope=0.2)
         
         score = self.softmax(self.conv_score(score))
