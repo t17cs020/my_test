@@ -199,7 +199,7 @@ class DGCNN(nn.Module):
     
 class SAN(nn.Module):
     def __init__(self, args, output_channels=40):
-        super(DGCNN, self).__init__()
+        super(SAN, self).__init__()
         self.args = args
         self.k = args.k
         
@@ -291,7 +291,7 @@ class BottleNeck(nn.Module):
 
 class SAM(nn.Module):
     def __init__(self, input_channel, mid_channel):
-        super(BottleNeck, self).__init__()
+        super(SAM, self).__init__()
         self.conv1 = nn.Conv2d(input_channel, mid_channel, kernel_size=1)
         self.conv2 = nn.Conv2d(input_channel, mid_channel, kernel_size=1)
         self.conv3 = nn.Conv2d(input_channel, mid_channel, kernel_size=1)
@@ -302,8 +302,8 @@ class SAM(nn.Module):
         self.bn2 = nn.BatchNorm2d(mid_channel * 2)
         self.softmax = nn.Softmax(dim=-2)
         
-    def __init__(self, x, indices, xyz_position):
-        super(BottleNeck, self).__init__()
+    def forward(self, x, indices, xyz_position):
+        super(SAM, self).__init__()
         query = self.conv1(x)
         key = self.conv2(x)
         value = self.conv3(x)
