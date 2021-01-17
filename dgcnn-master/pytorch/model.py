@@ -341,6 +341,3 @@ class SAM(nn.Module):
         out = torch.mul(score, values)
         out = out.sum(dim=-1, keepdim=False)
         return out
-        
-        
-        
