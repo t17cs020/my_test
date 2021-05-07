@@ -222,7 +222,7 @@ class SAN(nn.Module):
         self.args = args
         self.k = args.k
         
-        self.bn1 = nn.BatchNorm1d(128)
+        self.bn1 = nn.BatchNorm1d(64)
         self.bn2 = nn.BatchNorm1d(128)
         self.bn3 = nn.BatchNorm1d(128)
         self.bn4 = nn.BatchNorm1d(128)
@@ -230,7 +230,7 @@ class SAN(nn.Module):
         ####################conv_in ここから#################
         self.conv_in = nn.Sequential(nn.Conv1d(3, 64, kernel_size=1, bias=False),
                                    self.bn1,
-                                   nn.LeakyReLU(negative_slope=0.2))
+                                   nn.ReLU())
         ####################ここまで########################
         self.fc1 = nn.Conv1d(64, 64, kernel_size=1)
         self.sa1 = BottleNeck(64, 64//2)
