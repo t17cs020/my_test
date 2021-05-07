@@ -249,7 +249,7 @@ class SAN(nn.Module):
         ####################################################
         self.fc5 = nn.Sequential(nn.Conv1d(512, args.emb_dims, kernel_size=1, bias=False),
                                    self.bn5,
-                                   nn.ReLU(negative_slope=0.2))
+                                   nn.ReLU)
         self.linear1 = nn.Linear(args.emb_dims, 512, bias=False)
         self.bn6 = nn.BatchNorm1d(512)
         self.dp1 = nn.Dropout(p=args.dropout)
@@ -285,9 +285,9 @@ class SAN(nn.Module):
         x = self.fc5(x)
         x = F.adaptive_max_pool1d(x, 1).squeeze()
 
-        x = F.relu(self.bn6(self.linear1(x)), negative_slope=0.2)
+        x = F.relu(self.bn6(self.linear1(x)))
         x = self.dp1(x)
-        x = F.relu(self.bn7(self.linear2(x)), negative_slope=0.2)
+        x = F.relu(self.bn7(self.linear2(x)))
         x = self.dp2(x)
         x = self.linear3(x)
         return x
@@ -336,8 +336,8 @@ class SAM(nn.Module):
         score = torch.cat((score, positional), dim=1)
         values = torch.cat((values, positional), dim=1)
         
-        score = F.relu(self.bn1(score), negative_slope=0.2)
-        values = F.relu(self.bn2(values), negative_slope=0.2)
+        score = F.relu(self.bn1(score))
+        values = F.relu(self.bn2(values))
         
         score = self.softmax(self.conv_score(score))
         values = self.conv_value(values)
