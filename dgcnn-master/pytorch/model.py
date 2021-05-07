@@ -249,7 +249,7 @@ class SAN(nn.Module):
         ####################################################
         self.fc5 = nn.Sequential(nn.Conv1d(512, args.emb_dims, kernel_size=1, bias=False),
                                    self.bn5,
-                                   nn.ReLU)
+                                   nn.ReLU())
         self.linear1 = nn.Linear(args.emb_dims, 512, bias=False)
         self.bn6 = nn.BatchNorm1d(512)
         self.dp1 = nn.Dropout(p=args.dropout)
