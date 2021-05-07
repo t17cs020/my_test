@@ -108,10 +108,12 @@ def get_score_feature(x, y, indices, k=20):
     _, num_dims, _ = x.size()
     x = x.transpose(2, 1).contiguous()   # (batch_size, num_points, num_dims)  -> (batch_size*num_points, num_dims) #   batch_size * num_points * k + range(0, batch_size*num_points)
     y = y.transpose(2, 1).contiguous()
-    feature = x.view(batch_size*num_points, -1)[idx, :]
-    feature = feature.view(batch_size, num_points, k, num_dims)     
-    feature = feature.permute(0, 3, 1, 2).contiguous()
-    y = y.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
+    feature = y.view(batch_size*num_points, -1)[idx, :]
+    feature = feature.view(batch_size, num_points, k, num_dims)
+    
+    x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
+    
+    feature = (feature-x).permute(0, 3, 1, 2).contiguous()
 
     return feature
 
@@ -226,28 +228,28 @@ class SAN(nn.Module):
         self.bn4 = nn.BatchNorm1d(128)
         self.bn5 = nn.BatchNorm1d(args.emb_dims)
         ####################conv_in ここから#################
-        self.conv_in = nn.Sequential(nn.Conv1d(3, 128, kernel_size=1, bias=False),
+        self.conv_in = nn.Sequential(nn.Conv1d(3, 64, kernel_size=1, bias=False),
                                    self.bn1,
                                    nn.LeakyReLU(negative_slope=0.2))
         ####################ここまで########################
-        self.fc1 = nn.Conv1d(128, 128, kernel_size=1)
-        self.sa1 = BottleNeck(128, 128//4)
+        self.fc1 = nn.Conv1d(64, 64, kernel_size=1)
+        self.sa1 = BottleNeck(64, 64//2)
         ####################################################
         ####################ここまで########################
-        self.fc2 = nn.Conv1d(128, 128, kernel_size=1)
-        self.sa2 = BottleNeck(128, 128//4)
+        self.fc2 = nn.Conv1d(64, 64, kernel_size=1)
+        self.sa2 = BottleNeck(64, 64//2)
         ####################################################
         ####################ここまで########################
-        self.fc3 = nn.Conv1d(128, 128, kernel_size=1)
-        self.sa3 = BottleNeck(128, 128//4)
+        self.fc3 = nn.Conv1d(64, 128, kernel_size=1)
+        self.sa3 = BottleNeck(128, 128//2)
         ####################################################
         ####################ここまで########################
-        self.fc4 = nn.Conv1d(128, 128, kernel_size=1)
-        self.sa4 = BottleNeck(128, 128//4)
+        self.fc4 = nn.Conv1d(128, 256, kernel_size=1)
+        self.sa4 = BottleNeck(256, 256//2)
         ####################################################
-        self.fc5 = nn.Sequential(nn.Conv1d(128*4, args.emb_dims, kernel_size=1, bias=False),
+        self.fc5 = nn.Sequential(nn.Conv1d(512, args.emb_dims, kernel_size=1, bias=False),
                                    self.bn5,
-                                   nn.LeakyReLU(negative_slope=0.2))
+                                   nn.ReLU(negative_slope=0.2))
         self.linear1 = nn.Linear(args.emb_dims, 512, bias=False)
         self.bn6 = nn.BatchNorm1d(512)
         self.dp1 = nn.Dropout(p=args.dropout)
@@ -283,9 +285,9 @@ class SAN(nn.Module):
         x = self.fc5(x)
         x = F.adaptive_max_pool1d(x, 1).squeeze()
 
-        x = F.leaky_relu(self.bn6(self.linear1(x)), negative_slope=0.2)
+        x = F.relu(self.bn6(self.linear1(x)), negative_slope=0.2)
         x = self.dp1(x)
-        x = F.leaky_relu(self.bn7(self.linear2(x)), negative_slope=0.2)
+        x = F.relu(self.bn7(self.linear2(x)), negative_slope=0.2)
         x = self.dp2(x)
         x = self.linear3(x)
         return x
@@ -300,8 +302,8 @@ class BottleNeck(nn.Module):
             
     def forward(self, x, indices, xyz_position):
         identity = x
-        out = F.leaky_relu(self.bn1(x))
-        out = F.leaky_relu(self.bn2(self.sam(out, indices, xyz_position)))
+        out = F.relu(self.bn1(x))
+        out = F.relu(self.bn2(self.sam(out, indices, xyz_position)))
         out = self.conv(out)
         out += identity
         return out
@@ -325,15 +327,17 @@ class SAM(nn.Module):
         value = self.conv3(x)
         position = self.conv4(xyz_position)
         
-        score = get_score_feature(key, query, indices)
-        values = get_NN_feature(value, indices)
-        positional =  get_PE(position,  indices)
+        k = indices.shape[-1]
+        
+        score = get_score_feature(query, key, indices, k)
+        values = get_NN_feature(value, indices, k)
+        positional =  get_PE(position,  indices, k)
         
         score = torch.cat((score, positional), dim=1)
         values = torch.cat((values, positional), dim=1)
         
-        score = F.leaky_relu(self.bn1(score), negative_slope=0.2)
-        values = F.leaky_relu(self.bn2(values), negative_slope=0.2)
+        score = F.relu(self.bn1(score), negative_slope=0.2)
+        values = F.relu(self.bn2(values), negative_slope=0.2)
         
         score = self.softmax(self.conv_score(score))
         values = self.conv_value(values)
